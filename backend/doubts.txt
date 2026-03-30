@@ -1,0 +1,256 @@
+# 🔐 AUTH + BACKEND NOTES (MICROSERVICES / SPRING BOOT / JWT)
+
+---
+
+## 🧠 JWT AUTH FLOW (CORE IDEA)
+
+1. User logs in → server verifies credentials
+2. Server generates JWT (access token)
+3. Token sent to client (stored in HttpOnly cookie)
+4. Every request → cookie automatically sent
+5. Backend filter:
+
+   * extracts token
+   * validates it
+   * sets authentication in Spring
+
+---
+
+## 🔑 JwtAuthFilter FLOW
+
+* Extract JWT from cookie
+* Extract email from token
+* Load user from DB (UserDetails)
+* Validate token
+* If valid → set authentication in SecurityContext
+* Continue request
+
+👉 Without setting authentication → user is treated as anonymous
+
+---
+
+## 🔐 SecurityContextHolder
+
+* Stores authentication for current request
+* `setAuthentication()` = marks user as logged in
+* Required for:
+
+  * role-based access
+  * protected routes
+  * getting current user
+
+---
+
+## 🧠 UserDetails
+
+* Comes from `UserDetailsService`
+* Loaded from DB using email
+* Contains:
+
+  * username (email)
+  * password
+  * roles
+* Used to verify token and build authentication
+
+---
+
+## ⚖️ Token Validation Logic
+
+```java
+email.equals(userDetails.getUsername()) && !isTokenExpired(token)
+```
+
+👉 Purpose:
+
+* Match token identity with DB
+* Ensure token is still valid
+
+---
+
+## 🔁 ACCESS TOKEN vs REFRESH TOKEN
+
+### Access Token
+
+* Short-lived (e.g., 15 min)
+* Used for API requests
+
+### Refresh Token
+
+* Long-lived (e.g., 7 days)
+* Used to get new access token
+
+---
+
+## 🔄 Refresh Flow
+
+1. Access token expires
+2. Client sends refresh token
+3. Server validates refresh token
+4. New access token issued
+
+👉 No need to login again
+
+---
+
+## 🍪 JWT IN COOKIES
+
+Key attributes:
+
+* HttpOnly → JS cannot access (XSS protection)
+* Path=/ → sent on all routes
+* MaxAge → matches token expiry
+* SameSite=Strict → prevents CSRF
+* Secure → only HTTPS (prod)
+
+⚠️ Don’t set cookie twice (avoid duplicate headers)
+
+---
+
+## 🔐 Spring Security Config (BIG PICTURE)
+
+Defines:
+
+* public vs protected routes
+* JWT filter
+* stateless session
+* authentication provider
+
+---
+
+### Important Concepts
+
+#### 1. CSRF Disabled
+
+* Not needed for JWT APIs
+
+#### 2. Stateless Sessions
+
+* No server-side session
+* Each request authenticated independently
+
+#### 3. Route Rules
+
+* `/login`, `/register` → public
+* `/admin/**` → admin only
+* others → authenticated
+
+#### 4. JWT Filter
+
+* Runs before Spring auth
+* Extracts + validates token
+
+---
+
+## 🔑 AuthenticationProvider
+
+* Used during login
+* Combines:
+
+  * UserDetailsService
+  * PasswordEncoder
+
+---
+
+## 🔐 Password Encoding
+
+* Use BCrypt
+* Never store plain passwords
+* Adds salt + slow hashing
+
+---
+
+## ⚠️ Warning about AuthenticationProvider
+
+Spring warns:
+
+* UserDetailsService won’t be auto-used
+
+👉 This is expected when using custom provider
+
+---
+
+## 🧠 Git Notes
+
+### Multiple -m flags
+
+```bash
+git commit -m "title" -m "description"
+```
+
+👉 Creates multi-line commit message:
+
+* first = summary
+* second = detailed explanation
+
+---
+
+## 🧠 LLM CONTEXT (Antigravity)
+
+* Switching models keeps chat text
+* Does NOT share embeddings or memory
+* New model re-reads chat from scratch
+
+👉 Always re-summarize before switching
+
+---
+
+## 🧠 MongoDB INDEXING
+
+### @Indexed
+
+* Normal index
+* Used for filtering
+* Example:
+
+  * category queries
+
+---
+
+### @TextIndexed
+
+* Full-text search
+* Keyword-based
+* Supports:
+
+  * multiple fields
+  * relevance
+
+---
+
+### Difference
+
+| Indexed        | TextIndexed        |
+| -------------- | ------------------ |
+| Exact match    | Keyword search     |
+| Fast filtering | Search engine-like |
+| category       | name/description   |
+
+---
+
+## 🧠 PERFORMANCE INSIGHT
+
+* DB lookup in every request = costly
+* Alternatives:
+
+  * store roles in JWT
+  * caching (Redis)
+
+---
+
+## 🧠 OVERALL ARCHITECTURE
+
+You built:
+
+### Login Flow
+
+* email + password → AuthenticationManager
+* generate JWT
+
+### Request Flow
+
+* JWT filter validates
+* sets authentication
+* request proceeds
+
+---
+

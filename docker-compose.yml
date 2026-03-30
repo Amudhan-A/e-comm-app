@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # ─────────────────── MongoDB Instances ───────────────────
+  mongo-auth:
+    image: mongo:7.0
+    container_name: mongo-auth
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: auth_db
+    volumes:
+      - mongo-auth-data:/data/db
+    networks:
+      - ecom-network
+
+  mongo-product:
+    image: mongo:7.0
+    container_name: mongo-product
+    restart: unless-stopped
+    ports:
+      - "27018:27017"
+    environment:
+      MONGO_INITDB_DATABASE: product_db
+    volumes:
+      - mongo-product-data:/data/db
+    networks:
+      - ecom-network
+
+  mongo-cart:
+    image: mongo:7.0
+    container_name: mongo-cart
+    restart: unless-stopped
+    ports:
+      - "27019:27017"
+    environment:
+      MONGO_INITDB_DATABASE: cart_db
+    volumes:
+      - mongo-cart-data:/data/db
+    networks:
+      - ecom-network
+
+  mongo-order:
+    image: mongo:7.0
+    container_name: mongo-order
+    restart: unless-stopped
+    ports:
+      - "27020:27017"
+    environment:
+      MONGO_INITDB_DATABASE: order_db
+    volumes:
+      - mongo-order-data:/data/db
+    networks:
+      - ecom-network
+
+# ─────────────────── Networks & Volumes ───────────────────
+networks:
+  ecom-network:
+    driver: bridge
+
+volumes:
+  mongo-auth-data:
+  mongo-product-data:
+  mongo-cart-data:
+  mongo-order-data:

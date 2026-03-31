@@ -9,6 +9,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpCookie;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
@@ -21,18 +22,21 @@ import java.util.List;
 
 /**
  * JwtAuthFilter is a Global Gateway Filter that intercepts every request
- * and performs JWT validation for protected routes.
+ * and performs JWT validation + Role-Based Access Control (RBAC).
+ *
+ * Security model:
+ *   - Public routes: no token needed (auth endpoints, GET products, swagger)
+ *   - Authenticated routes: valid JWT required (cart, orders, profile)
+ *   - Admin-only routes: valid JWT + ROLE_ADMIN required (product create/update/delete)
  *
  * Flow:
- *   1. Check if the route is public (auth endpoints, swagger, product listing) → skip
+ *   1. Check if the route is fully public → pass through
  *   2. Extract the "accessToken" HttpOnly cookie
  *   3. Parse and validate the JWT using the shared secret
- *   4. Extract userId (subject/email) and role from claims
+ *   4. Check if the route requires ADMIN role → enforce it
  *   5. Inject X-User-Id and X-User-Role headers into the downstream request
- *   6. If token is missing/invalid/expired → return 401 Unauthorized
- *
- * This filter runs on EVERY request. The Gateway is WebFlux-based (reactive),
- * so we use GlobalFilter (not servlet OncePerRequestFilter).
+ *   6. If token is missing/invalid/expired → 401 Unauthorized
+ *   7. If role is insufficient → 403 Forbidden
  */
 @Component
 public class JwtAuthFilter implements GlobalFilter, Ordered {
@@ -41,16 +45,13 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     private String secretKey;
 
     /**
-     * Paths that do NOT require authentication.
-     * Auth endpoints must be open — otherwise users can't log in.
-     * Product listing is public — unauthenticated browsing is allowed.
-     * Swagger endpoints are for development.
+     * Fully public paths — no authentication required at all.
+     * These are matched with startsWith, so /api/auth/register, /swagger-ui/index.html, etc. all work.
      */
-    private static final List<String> PUBLIC_PATHS = List.of(
+    private static final List<String> OPEN_PATHS = List.of(
             "/api/auth/register",
             "/api/auth/login",
             "/api/auth/refresh",
-            "/api/products",
             "/swagger-ui",
             "/api-docs"
     );
@@ -59,20 +60,27 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
+        HttpMethod method = request.getMethod();
 
-        // Skip authentication for public paths
-        if (isPublicPath(path)) {
+        // ── Fully open paths (no token needed) ───────────────────────────────
+        if (isOpenPath(path)) {
             return chain.filter(exchange);
         }
 
-        // Extract JWT from "accessToken" HttpOnly cookie
+        // ── GET /api/products is public (browsing without login) ─────────────
+        // But POST/PUT/DELETE /api/products requires ADMIN (handled below after JWT parse)
+        if (method == HttpMethod.GET && path.startsWith("/api/products")) {
+            return chain.filter(exchange);
+        }
+
+        // ── Everything below requires a valid JWT ────────────────────────────
+
         String token = extractTokenFromCookie(exchange, "accessToken");
 
         if (token == null) {
             return unauthorizedResponse(exchange, "Missing access token");
         }
 
-        // Validate token and extract claims
         Claims claims;
         try {
             claims = extractAllClaims(token);
@@ -80,55 +88,69 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return unauthorizedResponse(exchange, "Invalid or expired token");
         }
 
-        // Check expiration
         if (claims.getExpiration().before(new Date())) {
             return unauthorizedResponse(exchange, "Token has expired");
         }
 
-        // Extract user info from claims
         String userEmail = claims.getSubject();
         String role = claims.get("role", String.class);
+        if (role == null) {
+            role = "ROLE_CUSTOMER";
+        }
 
-        // Inject user context headers into the downstream request
-        // These headers are what cart-service, order-service, etc. read
+        // ── Admin-only routes: product mutations + order status updates ───────
+        if (isAdminOnly(path, method) && !"ROLE_ADMIN".equals(role)) {
+            return forbiddenResponse(exchange, "Admin access required");
+        }
+
+        // ── Inject user identity headers for downstream services ─────────────
         ServerHttpRequest mutatedRequest = request.mutate()
                 .header("X-User-Id", userEmail)
-                .header("X-User-Role", role != null ? role : "ROLE_CUSTOMER")
+                .header("X-User-Role", role)
                 .build();
 
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
-    /**
-     * High priority — this filter must run BEFORE routing.
-     * Lower number = higher priority.
-     */
     @Override
     public int getOrder() {
         return -1;
     }
 
     /**
-     * Check if the request path is public (no auth required).
-     * Uses startsWith so /api/products, /api/products/123, etc. all match.
+     * Check if the path is fully open (no auth at all).
      */
-    private boolean isPublicPath(String path) {
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+    private boolean isOpenPath(String path) {
+        return OPEN_PATHS.stream().anyMatch(path::startsWith);
     }
 
     /**
-     * Extract a cookie value from the reactive ServerWebExchange.
-     * Spring WebFlux uses HttpCookie (not jakarta.servlet.http.Cookie).
+     * Check if this path + method combination requires ADMIN role.
+     *
+     * Admin-only operations:
+     *   - POST, PUT, DELETE on /api/products (create, update, soft-delete products)
+     *   - PATCH /api/products/{id}/stock (internal, but guard it anyway)
+     *   - PATCH /api/orders/{id}/status (admin status updates)
      */
+    private boolean isAdminOnly(String path, HttpMethod method) {
+        // Product write operations: POST, PUT, DELETE, PATCH on /api/products
+        if (path.startsWith("/api/products") && method != HttpMethod.GET) {
+            return true;
+        }
+
+        // Order status update: PATCH /api/orders/.../status
+        if (path.startsWith("/api/orders") && path.endsWith("/status") && method == HttpMethod.PATCH) {
+            return true;
+        }
+
+        return false;
+    }
+
     private String extractTokenFromCookie(ServerWebExchange exchange, String cookieName) {
         HttpCookie cookie = exchange.getRequest().getCookies().getFirst(cookieName);
         return cookie != null ? cookie.getValue() : null;
     }
 
-    /**
-     * Parse the JWT and verify its signature using the shared secret.
-     * Throws an exception if the token is tampered with or malformed.
-     */
     private Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())
@@ -137,22 +159,19 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
                 .getBody();
     }
 
-    /**
-     * Convert the Base64-encoded secret from application.properties
-     * into a cryptographic Key object for HMAC-SHA256 verification.
-     * Same logic as auth-service's JwtService.getSigningKey().
-     */
     private Key getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    /**
-     * Return a 401 Unauthorized response with the connection closed.
-     * No response body — the status code is sufficient for the frontend.
-     */
     private Mono<Void> unauthorizedResponse(ServerWebExchange exchange, String reason) {
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        exchange.getResponse().getHeaders().add("X-Auth-Error", reason);
+        return exchange.getResponse().setComplete();
+    }
+
+    private Mono<Void> forbiddenResponse(ServerWebExchange exchange, String reason) {
+        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
         exchange.getResponse().getHeaders().add("X-Auth-Error", reason);
         return exchange.getResponse().setComplete();
     }

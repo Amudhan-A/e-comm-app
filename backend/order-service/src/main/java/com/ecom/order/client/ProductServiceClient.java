@@ -1,7 +1,7 @@
 package com.ecom.order.client;
 
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -24,7 +24,7 @@ public interface ProductServiceClient {
      * If the product has insufficient stock, the product-service will return
      * an error, which Feign will propagate as a FeignException.
      */
-    @PatchMapping("/api/products/{id}/stock")
+    @PostMapping("/api/products/{id}/stock")
     void reduceStock(@PathVariable("id") String productId,
                      @RequestParam("quantity") int quantity);
 }

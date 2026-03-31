@@ -122,7 +122,7 @@ public class ProductController {
      * @param id       the product ID
      * @param quantity how many units to deduct from stock
      */
-    @PatchMapping("/{id}/stock")
+    @PostMapping("/{id}/stock")
     public ResponseEntity<Void> reduceStock(
             @PathVariable String id,
             @RequestParam int quantity

@@ -1,13 +1,12 @@
-package com.ecom.cart_service;
+package com.ecom.order;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class CartServiceApplicationTests {
+class OrderServiceApplicationTests {
 
 	@Test
 	void contextLoads() {
 	}
-
 }

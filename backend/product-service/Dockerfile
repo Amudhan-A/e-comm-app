@@ -1,4 +1,4 @@
-FROM eclipse-temurin:24-jdk AS build
+FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
 
 COPY mvnw .
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y dos2unix && dos2unix mvnw && chmod +x m
 COPY src src
 RUN ./mvnw clean package -DskipTests
 
-FROM eclipse-temurin:24-jre
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 

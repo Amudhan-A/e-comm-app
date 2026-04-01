@@ -1,0 +1,106 @@
+services:
+  # ─── FRONTEND (React/Vite) ───
+  - type: web
+    name: frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: api-gateway
+          property: host
+
+  # ─── BACKEND MICROSERVICES ───
+  - type: web
+    name: auth-service
+    env: java
+    rootDir: backend/auth-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/auth-service-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+
+  - type: web
+    name: product-service
+    env: java
+    rootDir: backend/product-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/product-service-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: MONGO_URI
+        sync: false
+
+  - type: web
+    name: cart-service
+    env: java
+    rootDir: backend/cart-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/cart-service-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: MONGO_URI
+        sync: false
+
+  - type: web
+    name: order-service
+    env: java
+    rootDir: backend/order-service
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/order-service-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      # Tell Order Service where Product and Cart services live internally
+      - key: PRODUCT_SERVICE_URL
+        fromService:
+          type: web
+          name: product-service
+          property: host
+      - key: CART_SERVICE_URL
+        fromService:
+          type: web
+          name: cart-service
+          property: host
+
+  # ─── API GATEWAY ───
+  - type: web
+    name: api-gateway
+    env: java
+    rootDir: backend/api-gateway
+    buildCommand: ./mvnw clean package -DskipTests
+    startCommand: java -jar target/api-gateway-0.0.1-SNAPSHOT.jar
+    envVars:
+      - key: JWT_SECRET
+        sync: false
+      # Tell the Gateway how to route traffic to the others
+      - key: AUTH_SERVICE_URL
+        fromService:
+          type: web
+          name: auth-service
+          property: host
+      - key: PRODUCT_SERVICE_URL
+        fromService:
+          type: web
+          name: product-service
+          property: host
+      - key: CART_SERVICE_URL
+        fromService:
+          type: web
+          name: cart-service
+          property: host
+      - key: ORDER_SERVICE_URL
+        fromService:
+          type: web
+          name: order-service
+          property: host
+      # Tell Gateway which frontend domain is allowed to bypass CORS security
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: frontend
+          property: host

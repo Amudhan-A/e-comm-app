@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { fetchApi } from '../../api/fetchApi';
-import { Package, ShoppingBag, Plus, Save, Edit, Trash2 } from 'lucide-react';
+import { Plus, Save, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { TwoLevelSidebar } from '../../components/ui/sidebar-component';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState<'products' | 'orders'>('products');
@@ -9,6 +10,7 @@ const AdminDashboard = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Product Form State
   const [showProductForm, setShowProductForm] = useState(false);
@@ -24,19 +26,26 @@ const AdminDashboard = () => {
 
   const fetchProducts = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data: any = await fetchApi('/api/products?size=100');
       setProducts(data.content);
-    } catch (err) { }
+    } catch (err) {
+      setError('Failed to fetch products');
+    }
     setLoading(false);
   };
 
   const fetchOrders = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const data: any = await fetchApi('/api/orders?size=100');
+      const data: any = await fetchApi('/api/orders/all?size=100');
       setOrders(data.content);
-    } catch (err) { }
+    } catch (err) {
+      console.error('Fetch orders error:', err);
+      setError(`Failed to fetch orders: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
     setLoading(false);
   };
 
@@ -80,172 +89,246 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="container" style={{ padding: '2rem 1.5rem', display: 'flex', gap: '2rem' }}>
-      <aside style={{ width: '250px' }}>
-        <div className="card" style={{ padding: '1rem' }}>
-          <h3 style={{ marginBottom: '1.5rem', fontSize: '1.125rem' }}>Admin Menu</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <button 
-              onClick={() => setActiveTab('products')}
-              style={{
-                display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '0.75rem', 
-                borderRadius: '0.5rem', width: '100%', textAlign: 'left',
-                backgroundColor: activeTab === 'products' ? 'var(--bg-secondary)' : 'transparent',
-                color: activeTab === 'products' ? 'var(--accent-primary)' : 'var(--text-primary)',
-                fontWeight: activeTab === 'products' ? 600 : 400
-              }}
-            >
-              <Package size={20} /> Products
-            </button>
-            <button 
-              onClick={() => setActiveTab('orders')}
-              style={{
-                display: 'flex', gap: '0.75rem', alignItems: 'center', padding: '0.75rem', 
-                borderRadius: '0.5rem', width: '100%', textAlign: 'left',
-                backgroundColor: activeTab === 'orders' ? 'var(--bg-secondary)' : 'transparent',
-                color: activeTab === 'orders' ? 'var(--accent-primary)' : 'var(--text-primary)',
-                fontWeight: activeTab === 'orders' ? 600 : 400
-              }}
-            >
-              <ShoppingBag size={20} /> Orders
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      <main style={{ flex: 1 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.5rem' }}>{activeTab === 'products' ? 'Manage Products' : 'Manage Orders'}</h2>
+    <div className="bg-black min-h-screen text-white pt-24 pb-12 px-6">
+      <div className="container mx-auto max-w-7xl">
+        <div className="flex flex-col lg:flex-row gap-8">
           
-          {activeTab === 'products' && !showProductForm && (
-            <button className="btn btn-primary" onClick={() => {
-              setProductForm({ name: '', description: '', price: 0, stock: 10, category: 'ELECTRONICS', imageUrl: '' });
-              setEditingProductId(null);
-              setShowProductForm(true);
-            }}>
-              <Plus size={20} /> Add Product
-            </button>
-          )}
-        </div>
-
-        {loading ? (
-          <div className="center-flex" style={{ height: '300px' }}>Loading...</div>
-        ) : activeTab === 'products' ? (
-          showProductForm ? (
-            <div className="card" style={{ padding: '2rem' }}>
-              <h3 style={{ marginBottom: '1.5rem' }}>{editingProduciId ? 'Edit Product' : 'New Product'}</h3>
-              <form onSubmit={handeProductSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label>Name</label>
-                  <input type="text" value={productForm.name} onChange={e => setProductForm({...productForm, name: e.target.value})} required />
-                </div>
-                <div>
-                  <label>Description</label>
-                  <textarea value={productForm.description} onChange={e => setProductForm({...productForm, description: e.target.value})} required rows={3} style={{ width: '100%' }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label>Price ($)</label>
-                    <input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({...productForm, price: parseFloat(e.target.value)})} required />
-                  </div>
-                  <div>
-                    <label>Stock</label>
-                    <input type="number" value={productForm.stock} onChange={e => setProductForm({...productForm, stock: parseInt(e.target.value)})} required />
-                  </div>
-                  <div>
-                    <label>Category</label>
-                    <select value={productForm.category} onChange={e => setProductForm({...productForm, category: e.target.value})}>
-                      {['ELECTRONICS', 'CLOTHING', 'FOOTWEAR', 'BOOKS', 'HOME_AND_KITCHEN', 'SPORTS', 'BEAUTY', 'TOYS', 'GROCERIES', 'OTHER'].map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label>Image URL</label>
-                  <input type="url" value={productForm.imageUrl} onChange={e => setProductForm({...productForm, imageUrl: e.target.value})} required />
-                </div>
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                  <button type="submit" className="btn btn-primary"><Save size={20} /> Save Product</button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowProductForm(false)}>Cancel</button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <div className="card" style={{ overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <tr>
-                    <th style={{ padding: '1rem' }}>Product</th>
-                    <th style={{ padding: '1rem' }}>Category</th>
-                    <th style={{ padding: '1rem' }}>Price</th>
-                    <th style={{ padding: '1rem' }}>Stock</th>
-                    <th style={{ padding: '1rem', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {products.map(p => (
-                    <tr key={p.productId} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                        <img src={p.imageUrl} alt={p.name} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '0.25rem' }} />
-                        <span style={{ fontWeight: 500 }}>{p.name}</span>
-                      </td>
-                      <td style={{ padding: '1rem' }}>{p.category}</td>
-                      <td style={{ padding: '1rem' }}>${p.price.toFixed(2)}</td>
-                      <td style={{ padding: '1rem' }}>
-                        <span style={{ color: p.inStock ? 'var(--success-color)' : 'var(--error-color)' }}>{p.stock}</span>
-                      </td>
-                      <td style={{ padding: '1rem', textAlign: 'right' }}>
-                        <button onClick={() => { setProductForm(p); setEditingProductId(p.productId); setShowProductForm(true); }} className="btn btn-secondary" style={{ padding: '0.25rem 0.5rem', marginRight: '0.5rem' }} title="Edit"><Edit size={16} /></button>
-                        <button onClick={() => handleDeleteProduct(p.productId)} className="btn btn-danger" style={{ padding: '0.25rem 0.5rem' }} title="Delete"><Trash2 size={16} /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        ) : (
-          <div className="card" style={{ overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <tr>
-                  <th style={{ padding: '1rem' }}>Order ID</th>
-                  <th style={{ padding: '1rem' }}>User ID</th>
-                  <th style={{ padding: '1rem' }}>Total</th>
-                  <th style={{ padding: '1rem' }}>Date</th>
-                  <th style={{ padding: '1rem' }}>Status</th>
-                  <th style={{ padding: '1rem', textAlign: 'right' }}>Update Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map(o => (
-                  <tr key={o.orderId} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '1rem' }}>{o.orderId.substring(0, 8)}</td>
-                    <td style={{ padding: '1rem' }}>{o.userId}</td>
-                    <td style={{ padding: '1rem' }}>${o.totalAmount.toFixed(2)}</td>
-                    <td style={{ padding: '1rem' }}>{new Date(o.createdAt).toLocaleDateString()}</td>
-                    <td style={{ padding: '1rem', fontWeight: 600 }}>{o.status}</td>
-                    <td style={{ padding: '1rem', textAlign: 'right' }}>
-                      <select 
-                        value={o.status}
-                        onChange={(e) => handleUpdateOrderStatus(o.orderId, e.target.value)}
-                        style={{ padding: '0.25rem', width: 'auto' }}
-                      >
-                        <option value="PLACED">PLACED</option>
-                        <option value="CONFIRMED">CONFIRMED</option>
-                        <option value="SHIPPED">SHIPPED</option>
-                        <option value="DELIVERED">DELIVERED</option>
-                        <option value="CANCELLED">CANCELLED</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Global Two-Level Sidebar Integration */}
+          <div className="fixed inset-y-0 left-0 z-50 lg:relative lg:z-0">
+            <TwoLevelSidebar onTabChange={(tab) => setActiveTab(tab)} />
           </div>
-        )}
-      </main>
+
+          {/* Main Content */}
+          <main className="flex-1 min-w-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <h2 className="text-2xl md:text-3xl font-light tracking-tight">
+                {activeTab === 'products' ? 'Product Management' : 'Order Management'}
+              </h2>
+              
+              {activeTab === 'products' && !showProductForm && (
+                <button 
+                  className="bg-white text-black px-6 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 hover:bg-white/90 transition-all active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                  onClick={() => {
+                    setProductForm({ name: '', description: '', price: 0, stock: 10, category: 'ELECTRONICS', imageUrl: '' });
+                    setEditingProductId(null);
+                    setShowProductForm(true);
+                  }}
+                >
+                  <Plus size={18} /> Add Product
+                </button>
+              )}
+            </div>
+
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/50 text-red-200 p-4 rounded-xl mb-8 flex items-start gap-3 backdrop-blur-sm">
+                <AlertCircle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm font-light">{error}</p>
+              </div>
+            )}
+
+            {loading ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-24 flex items-center justify-center backdrop-blur-sm">
+                <div className="h-8 w-8 rounded-full border-t-2 border-r-2 border-white animate-spin"></div>
+              </div>
+            ) : activeTab === 'products' ? (
+              showProductForm ? (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm relative overflow-hidden">
+                   {/* Ambient Glow */}
+                   <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none -translate-x-1/2 translate-y-1/2"></div>
+                   
+                  <h3 className="text-xl font-medium mb-8 pb-4 border-b border-white/10">
+                    {editingProduciId ? 'Edit Product Details' : 'Initialize New Product'}
+                  </h3>
+                  <form onSubmit={handeProductSubmit} className="flex flex-col gap-6 relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-sm text-white/50 ml-1">Product Name</label>
+                        <input 
+                          type="text" 
+                          value={productForm.name} 
+                          onChange={e => setProductForm({...productForm, name: e.target.value})} 
+                          required 
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3.5 text-white placeholder-white/20 focus:border-white/30 focus:ring-1 focus:ring-white/30 outline-none transition-all font-light"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm text-white/50 ml-1">Category</label>
+                        <select 
+                          value={productForm.category} 
+                          onChange={e => setProductForm({...productForm, category: e.target.value})}
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:border-white/30 outline-none transition-all font-light appearance-none"
+                        >
+                          {['ELECTRONICS', 'CLOTHING', 'FOOTWEAR', 'BOOKS', 'HOME_AND_KITCHEN', 'SPORTS', 'BEAUTY', 'TOYS', 'GROCERIES', 'OTHER'].map(c => (
+                            <option key={c} value={c} className="bg-zinc-900">{c.replace(/_/g, ' ')}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm text-white/50 ml-1">Description</label>
+                      <textarea 
+                        value={productForm.description} 
+                        onChange={e => setProductForm({...productForm, description: e.target.value})} 
+                        required 
+                        rows={3} 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3.5 text-white placeholder-white/20 focus:border-white/30 focus:ring-1 focus:ring-white/30 outline-none transition-all font-light resize-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-sm text-white/50 ml-1">Price ($)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={productForm.price} 
+                          onChange={e => setProductForm({...productForm, price: parseFloat(e.target.value)})} 
+                          required 
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:border-white/30 outline-none transition-all font-light"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm text-white/50 ml-1">Initial Stock</label>
+                        <input 
+                          type="number" 
+                          value={productForm.stock} 
+                          onChange={e => setProductForm({...productForm, stock: parseInt(e.target.value)})} 
+                          required 
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3.5 text-white focus:border-white/30 outline-none transition-all font-light"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm text-white/50 ml-1">Image URL</label>
+                        <input 
+                          type="url" 
+                          value={productForm.imageUrl} 
+                          onChange={e => setProductForm({...productForm, imageUrl: e.target.value})} 
+                          required 
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3.5 text-white placeholder-white/20 focus:border-white/30 outline-none transition-all font-light"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4 pt-6 border-t border-white/10">
+                      <button 
+                        type="submit" 
+                        className="bg-white text-black px-8 py-3.5 rounded-xl font-medium tracking-wide hover:bg-white/90 shadow-[0_0_20px_rgba(255,255,255,0.1)] transition-all flex items-center gap-2"
+                      >
+                        <Save size={18} /> {editingProduciId ? 'Update Product' : 'Create Product'}
+                      </button>
+                      <button 
+                        type="button" 
+                        className="text-white/40 hover:text-white px-6 py-3.5 rounded-xl transition-colors font-light"
+                        onClick={() => setShowProductForm(false)}
+                      >
+                        Discard Changes
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-white/[0.02] border-b border-white/10">
+                        <tr>
+                          <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Product</th>
+                          <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Category</th>
+                          <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Price</th>
+                          <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Stock</th>
+                          <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {products.map(p => (
+                          <tr key={p.id} className="group hover:bg-white/[0.02] transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-lg overflow-hidden border border-white/10 flex-shrink-0 bg-black/40">
+                                  <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+                                </div>
+                                <span className="font-medium text-white/90 group-hover:text-white transition-colors">{p.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-[10px] uppercase font-medium tracking-wider text-white/60">
+                                {p.category}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-white/80 font-light">${p.price.toFixed(2)}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-1.5 h-1.5 rounded-full ${p.inStock ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,44,44,0.5)]'}`}></div>
+                                <span className={`text-sm font-light ${p.inStock ? 'text-green-400' : 'text-red-400'}`}>{p.stock}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button onClick={() => { setProductForm(p); setEditingProductId(p.id); setShowProductForm(true); }} className="p-2 rounded-lg bg-white/5 hover:bg-white hover:text-black transition-all border border-white/10" title="Edit"><Edit size={14} /></button>
+                                <button onClick={() => handleDeleteProduct(p.id)} className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20" title="Delete"><Trash2 size={14} /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-white/[0.02] border-b border-white/10">
+                      <tr>
+                        <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Order ID</th>
+                        <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest text-center">User</th>
+                        <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Total</th>
+                        <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Date</th>
+                        <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest">Status</th>
+                        <th className="px-6 py-4 font-medium text-white/40 text-xs uppercase tracking-widest text-right">Update</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {orders.map(o => (
+                        <tr key={o.orderId} className="group hover:bg-white/[0.02] transition-colors">
+                          <td className="px-6 py-4 font-mono text-xs text-white/60">#{o.orderId.substring(0, 8)}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white/5 text-[10px] text-white/50 border border-white/10">
+                              {o.userId.substring(0, 2).toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 font-medium text-white">${o.totalAmount.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-white/40 text-sm font-light">{new Date(o.createdAt).toLocaleDateString()}</td>
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-bold tracking-widest bg-white/5 border border-white/10">
+                              {o.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <select 
+                              value={o.status}
+                              onChange={(e) => handleUpdateOrderStatus(o.orderId, e.target.value)}
+                              className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/70 outline-none focus:border-white/30 transition-all appearance-none cursor-pointer"
+                            >
+                              <option value="PLACED" className="bg-zinc-900 uppercase">PLACED</option>
+                              <option value="CONFIRMED" className="bg-zinc-900 uppercase">CONFIRMED</option>
+                              <option value="SHIPPED" className="bg-zinc-900 uppercase">SHIPPED</option>
+                              <option value="DELIVERED" className="bg-zinc-900 uppercase">DELIVERED</option>
+                              <option value="CANCELLED" className="bg-zinc-900 uppercase">CANCELLED</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
     </div>
   );
 };

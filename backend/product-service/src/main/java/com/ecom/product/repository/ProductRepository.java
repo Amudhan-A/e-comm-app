@@ -51,6 +51,22 @@ public interface ProductRepository extends MongoRepository<Product, String> {
     Page<Product> searchByKeyword(String keyword, Pageable pageable);
 
     /**
+     * Regex-based fallback search when $text index is unavailable.
+     * Searches 'name' field with case-insensitive regex matching.
+     * Slower than $text but works without requiring a text index.
+     */
+    @Query("{ 'name': { $regex: ?0, $options: 'i' }, active: true }")
+    Page<Product> searchByNameRegex(String keyword, Pageable pageable);
+
+    /**
+     * Combined keyword + category search.
+     * Searches 'name' with case-insensitive regex AND filters by category.
+     * Used when the user types a search query while a category filter is active.
+     */
+    @Query("{ 'name': { $regex: ?0, $options: 'i' }, 'category': ?1, active: true }")
+    Page<Product> searchByNameRegexAndCategory(String keyword, Category category, Pageable pageable);
+
+    /**
      * Check if any product exists with this exact name (used to prevent duplicates).
      * Case-insensitive comparison via the regex flag 'i'.
      */

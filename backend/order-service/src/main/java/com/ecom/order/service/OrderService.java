@@ -157,6 +157,16 @@ public class OrderService {
         return buildPagedResponse(orderPage);
     }
 
+    /**
+     * Fetch all orders in the system with pagination (Admin only).
+     * Default: newest orders first, 10 per page.
+     */
+    public PagedResponse<OrderResponse> getAllOrders(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Order> orderPage = orderRepository.findAll(pageable);
+        return buildPagedResponse(orderPage);
+    }
+
     // ── Cancel Order ──────────────────────────────────────────────────────────
 
     /**
@@ -178,6 +188,18 @@ public class OrderService {
             throw new RuntimeException(
                     "Cannot cancel order. Current status: " + order.getStatus()
                     + ". Only orders in PLACED status can be cancelled.");
+        }
+
+        // Restore stock for each item in the order
+        for (OrderItem item : order.getItems()) {
+            try {
+                productServiceClient.restoreStock(item.getProductId(), item.getQuantity());
+            } catch (FeignException e) {
+                // Log the error but continue cancelling the order
+                // Stock restoration is a best-effort during cancellation
+                log.error("Failed to restore stock for product {} during order {} cancellation: {}",
+                        item.getProductId(), orderId, e.getMessage());
+            }
         }
 
         order.setStatus(OrderStatus.CANCELLED);

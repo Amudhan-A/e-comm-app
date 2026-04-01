@@ -130,4 +130,21 @@ public class ProductController {
         productService.reduceStock(id, quantity);
         return ResponseEntity.ok().build();
     }
+
+    /**
+     * Restore a product's stock by a given quantity.
+     * This is an INTERNAL endpoint — it's called by the order-service
+     * via OpenFeign when a customer cancels an order.
+     *
+     * @param id       the product ID
+     * @param quantity how many units to return to stock
+     */
+    @PostMapping("/{id}/stock/restore")
+    public ResponseEntity<Void> restoreStock(
+            @PathVariable String id,
+            @RequestParam int quantity
+    ) {
+        productService.restoreStock(id, quantity);
+        return ResponseEntity.ok().build();
+    }
 }

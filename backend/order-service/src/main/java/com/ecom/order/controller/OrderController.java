@@ -59,6 +59,22 @@ public class OrderController {
     }
 
     /**
+     * List all orders in the entire system.
+     * Accessible only by users with the ADMIN role.
+     */
+    @GetMapping("/all")
+    public ResponseEntity<PagedResponse<OrderResponse>> getAllOrders(
+            @RequestHeader(value = "X-User-Role", required = false, defaultValue = "USER") String role,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        if (!"ROLE_ADMIN".equalsIgnoreCase(role) && !"ADMIN".equalsIgnoreCase(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(orderService.getAllOrders(page, size));
+    }
+
+    /**
      * Get a specific order by ID.
      * Users can only view their own orders (enforced in service layer).
      */

@@ -106,11 +106,26 @@ public class ProductService {
         Page<Product> productPage;
 
         if (keyword != null && !keyword.isBlank()) {
-            // Full-text search — uses MongoDB $text index on name + description
-            productPage = productRepository.searchByKeyword(keyword.trim(), pageable);
+            // Keyword search — with or without a category filter
+            Pageable unsortedPageable = PageRequest.of(page, size);
+
+            if (category != null) {
+                // Combined: keyword + category filter
+                // Use regex search which supports category AND sorting
+                productPage = productRepository.searchByNameRegexAndCategory(
+                        keyword.trim(), category, pageable);
+            } else {
+                // Keyword only, no category filter
+                // Try $text search first (most relevant results), fall back to regex
+                try {
+                    productPage = productRepository.searchByKeyword(keyword.trim(), unsortedPageable);
+                } catch (Exception e) {
+                    productPage = productRepository.searchByNameRegex(keyword.trim(), pageable);
+                }
+            }
 
         } else if (category != null) {
-            // Category filter
+            // Category filter only, no keyword
             productPage = productRepository.findByCategoryAndActiveTrue(category, pageable);
 
         } else {
@@ -167,6 +182,21 @@ public class ProductService {
         }
 
         product.setStock(product.getStock() - quantity);
+        productRepository.save(product);
+    }
+
+    /**
+     * Restore a product's stock by a given quantity when an order is cancelled.
+     * Unlike reduceStock, this method always succeeds (unless product not found).
+     *
+     * @param id       product ID
+     * @param quantity how many units to return to stock
+     */
+    public void restoreStock(String id, int quantity) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+
+        product.setStock(product.getStock() + quantity);
         productRepository.save(product);
     }
 

@@ -1,8 +1,9 @@
-import React from 'react';
+import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
+import React from 'react'; // Kept for React.lazy and React.ReactNode if needed, though Suspense and lazy can be imported directly.
 
 // Lazy load pages for better performance
 const Home = React.lazy(() => import('./pages/Home'));
@@ -18,7 +19,12 @@ const AdminDashboard = React.lazy(() => import('./pages/admin/Dashboard'));
 const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode, requireAdmin?: boolean }) => {
   const { user, loading } = useAuth();
   
-  if (loading) return <div className="center-flex" style={{ height: '100vh' }}>Loading...</div>;
+  if (loading) return (
+    <div className="bg-black min-h-screen flex items-center justify-center">
+      <div className="h-8 w-8 rounded-full border-t-2 border-r-2 border-white animate-spin"></div>
+    </div>
+  );
+  
   if (!user) return <Navigate to="/login" replace />;
   if (requireAdmin && user.role !== 'ADMIN') return <Navigate to="/" replace />;
   
@@ -29,15 +35,23 @@ function App() {
   const { loading } = useAuth();
   
   if (loading) {
-    return <div className="center-flex" style={{ height: '100vh' }}>Loading application...</div>;
+    return (
+      <div className="bg-black min-h-screen flex items-center justify-center">
+        <div className="h-12 w-12 rounded-full border-t-2 border-r-2 border-white animate-spin"></div>
+      </div>
+    );
   }
 
   return (
     <BrowserRouter>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <div className="flex flex-col min-h-screen bg-black">
         <Navbar />
-        <main style={{ flex: 1 }}>
-          <React.Suspense fallback={<div className="center-flex" style={{ padding: '2rem' }}>Loading...</div>}>
+        <main className="flex-1">
+          <Suspense fallback={
+            <div className="bg-black min-h-[60vh] flex items-center justify-center">
+              <div className="h-8 w-8 rounded-full border-t-2 border-r-2 border-white animate-spin"></div>
+            </div>
+          }>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
@@ -54,7 +68,7 @@ function App() {
               {/* Protected Admin Routes */}
               <Route path="/admin/*" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
             </Routes>
-          </React.Suspense>
+          </Suspense>
         </main>
         <Footer />
       </div>

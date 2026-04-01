@@ -27,4 +27,14 @@ public interface ProductServiceClient {
     @PostMapping("/api/products/{id}/stock")
     void reduceStock(@PathVariable("id") String productId,
                      @RequestParam("quantity") int quantity);
+
+    /**
+     * Restore a product's stock by the given quantity.
+     * Maps to: POST /api/products/{id}/stock/restore?quantity=N in the product-service.
+     *
+     * Called once per order item during order cancellation.
+     */
+    @PostMapping("/api/products/{id}/stock/restore")
+    void restoreStock(@PathVariable("id") String productId,
+                      @RequestParam("quantity") int quantity);
 }

@@ -138,9 +138,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             return true;
         }
 
-        // Order status update: PATCH /api/orders/.../status
-        if (path.startsWith("/api/orders") && path.endsWith("/status") && method == HttpMethod.PATCH) {
-            return true;
+        // Order operations: update status + listing all orders
+        if (path.startsWith("/api/orders")) {
+            if ((path.endsWith("/status") && method == HttpMethod.PATCH) || path.endsWith("/all")) {
+                return true;
+            }
         }
 
         return false;

@@ -16,10 +16,9 @@ services:
   # ─── BACKEND MICROSERVICES ───
   - type: web
     name: auth-service
-    env: java
+    env: docker
+    dockerfilePath: Dockerfile
     rootDir: backend/auth-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/auth-service-0.0.1-SNAPSHOT.jar
     envVars:
       - key: MONGO_URI
         sync: false
@@ -28,30 +27,27 @@ services:
 
   - type: web
     name: product-service
-    env: java
+    env: docker
+    dockerfilePath: Dockerfile
     rootDir: backend/product-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/product-service-0.0.1-SNAPSHOT.jar
     envVars:
       - key: MONGO_URI
         sync: false
 
   - type: web
     name: cart-service
-    env: java
+    env: docker
+    dockerfilePath: Dockerfile
     rootDir: backend/cart-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/cart-service-0.0.1-SNAPSHOT.jar
     envVars:
       - key: MONGO_URI
         sync: false
 
   - type: web
     name: order-service
-    env: java
+    env: docker
+    dockerfilePath: Dockerfile
     rootDir: backend/order-service
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/order-service-0.0.1-SNAPSHOT.jar
     envVars:
       - key: MONGO_URI
         sync: false
@@ -70,10 +66,9 @@ services:
   # ─── API GATEWAY ───
   - type: web
     name: api-gateway
-    env: java
+    env: docker
+    dockerfilePath: Dockerfile
     rootDir: backend/api-gateway
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: java -jar target/api-gateway-0.0.1-SNAPSHOT.jar
     envVars:
       - key: JWT_SECRET
         sync: false

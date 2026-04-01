@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8080';
+const BASE_URL = 'https://api-gateway-iprx.onrender.com';
 
 class ApiError extends Error {
   status: number;
